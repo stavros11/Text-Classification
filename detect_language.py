@@ -49,12 +49,13 @@ def main(data_dir: str, area: str,
     except:
       print("Failed to detect language for:", review)
       identified_data.iloc[ic]["comments_language"] = "<unk>"
+    ic += 1
     if i % message == 0:
       print("{} / {}".format(i, finish_ind))
 
   # Save new DataFrame
   savename = "{}_reviews_withlang_{}to{}.csv".format(area, start_ind, finish_ind)
-  identified_data.to_csv(savename)
+  identified_data.to_csv(savename, index=False)
 
 
 if __name__ == '__main__':
