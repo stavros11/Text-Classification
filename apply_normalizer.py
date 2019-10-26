@@ -30,7 +30,7 @@ parser.add_argument("--message", default=None, type=int,
 
 def main(data_dir: str, area: str,
          samples: Optional[int] = None,
-         remove_stopwords: bool = False,
+         remove_stopwords: bool = True,
          lemmatize: bool = True,
          english_only: bool = True,
          message: Optional[int] = None):
