@@ -16,9 +16,11 @@ parser.add_argument("--samples", default=None, type=int,
                     help="Number of samples to use (to make it faster than using all data.")
 parser.add_argument("--message", default=None, type=int,
                     help="Every how many processed texts to print messages.")
+parser.add_argument("--remove-stopwords", action="store_true",
+                    help="Whether to remove stopwords from the corpus.")
 
 
-def main(data_dir, area, samples=None, message=None):
+def main(data_dir, area, samples=None, remove_stopwords=False, message=None):
   area_dir = os.path.join(data_dir, area)
   data = pd.read_csv(os.path.join(area_dir, "reviews.csv.gz"))
 
@@ -42,10 +44,13 @@ def main(data_dir, area, samples=None, message=None):
   normalizer = preprocessing.CorpusNormalizer(special_char_removal=True,
                                               remove_digits=True,
                                               text_lemmatization=True,
-                                              stopword_removal=False)
+                                              stopword_removal=remove_stopwords)
   sampled_data["normalized_comments"] = normalizer(sampled_data.comments,
               n_message=message)
-  sampled_data.to_csv("{}_reviews_{}samples.csv".format(area, samples))
+
+  stopwords = ["", "nostopwords"][int(remove_stopwords)]
+  savename = "{}_reviews_{}samples{}.csv".format(area, samples, stopwords)
+  sampled_data.to_csv(savename)
 
 
 if __name__ == '__main__':
