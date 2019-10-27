@@ -40,9 +40,12 @@ def main(data_dir: str, area: str,
   print("Loaded {} reviews.".format(area))
   # Remove lines for which reviews are nan
   clean_data = data[pd.notnull(data.comments)]
+  print("Number of not-NaN reviews: {}".format(len(clean_data)))
 
-  if samples is None:
-    samples = clean_data.shape[0]
+  if samples is None or samples > len(clean_data):
+    print("Using all reviews.")
+    samples = len(clean_data)
+
 
   normalizer = preprocessing.CorpusNormalizer(special_char_removal=True,
                                               remove_digits=True,
@@ -77,7 +80,10 @@ def main(data_dir: str, area: str,
         continue
     else:
       is_english = True
-    if is_valid and is_english:
+
+    # Skip the review if it contains the word "canceled".
+    # "canceled" reviews are usually automated postings!
+    if is_valid and is_english and ("canceled" not in review):
       sampled_data.iloc[ic] = data_row
       ic += 1
 
@@ -91,9 +97,9 @@ def main(data_dir: str, area: str,
   # Save new DataFrame
   stopwords = ["", "_nostopwords"][int(remove_stopwords)]
   english = ["", "_en"][int(english_only)]
-  savename = "{}_reviews{}{}_{}samples.csv".format(
+  savename = "{}_reviews{}{}_nocancel_{}samples.csv".format(
       area, stopwords, english, samples)
-  sampled_data.to_csv(savename)
+  sampled_data.to_csv(os.path.join(area_dir, savename), index=False)
 
 
 if __name__ == '__main__':
