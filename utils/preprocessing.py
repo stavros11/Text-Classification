@@ -39,9 +39,9 @@ class CorpusNormalizer:
 
         # Make given arguments attributes so that user doesn't have to give
         # them again in `__call__`.
-        argnames = set(inspect.getfullargspec(self.__init__).args)
-        argnames.remove("self")
-        for arg in argnames:
+        self.argnames = set(inspect.getfullargspec(self.__init__).args)
+        self.argnames.remove("self")
+        for arg in self.argnames:
             setattr(self, arg, locals()[arg])
 
     def strip_html_tags(self, text):
@@ -138,3 +138,8 @@ class CorpusNormalizer:
                 print("{} / {} done.".format(i + 1, len(corpus)))
 
         return normalized_corpus
+
+    def __str__(self):
+        enabled_functionalities = [arg for arg in self.argnames
+                                   if getattr(self, arg)]
+        return "\n".join(enabled_functionalities)
