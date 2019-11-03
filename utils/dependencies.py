@@ -94,11 +94,10 @@ def feature_sentiment(sentence: str) -> collections.Counter:
     return sent_dict
 
 
-def find_features(sentence: str) -> collections.Counter:
+def find_features(sentence: str) -> Set[str]:
     """Same as above but only counts features without caring about sentiment."""
-    sent_dict = collections.Counter()
+    sent_dict = set()
     sentence = _NLP(sentence)
-    debug = 0
     for token in sentence:
         # check if the word is an opinion word, then assign sentiment
         if token.text in _OPINION_WORDS:
@@ -107,13 +106,13 @@ def find_features(sentence: str) -> collections.Counter:
             if (token.dep_ == "advmod"):
                 continue
             elif (token.dep_ == "amod"):
-                sent_dict[token.head.text] += 1
+                sent_dict.add(token.head.text.lower())
             # for opinion words that are adjectives, adverbs, verbs...
             else:
                 for child in token.children:
                     # if verb, check if there's a direct object
                     if (token.pos_ == "VERB") & (child.dep_ == "dobj"):
-                        sent_dict[child.text] += 1
+                        sent_dict.add(child.text.lower())
                         # check for conjugates (a AND b), then add both to dictionary
                         subchildren = []
                         conj = 0
@@ -124,7 +123,7 @@ def find_features(sentence: str) -> collections.Counter:
                                 subchildren.append(subchild.text)
                                 conj = 0
                         for subchild in subchildren:
-                            sent_dict[subchild] += 1
+                            sent_dict.add(subchild)
 
                 # check for nouns
                 for child in token.head.children:
@@ -135,6 +134,5 @@ def find_features(sentence: str) -> collections.Counter:
                         for subchild in child.children:
                             if subchild.dep_ == "compound":
                                 noun = subchild.text + " " + noun
-                        sent_dict[noun] += 1
-                    debug += 1
-    return sent_dict
+                        sent_dict.add(noun)
+    return set(word.lower() for word in sent_dict)
