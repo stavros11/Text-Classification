@@ -5,20 +5,25 @@ import time
 from utils import custom_preprocessing, dependencies
 
 
-n_samples = 200000
-area = "nyc"
+n_samples = None
+area = "athens"
 island = None
 n_message = 400
-n_save = 5000
+n_save = 10000
+# Use this to continue from a previous checkpoint
+ids_file = None
+start_index = 0
+
 
 data_dir = "/home/stavros/DATA/AirbnbReviews"
 area_dir = os.path.join(data_dir, area)
+
 
 if island is None:
   # Either load the downloaded csv
   data = pd.read_csv(os.path.join(area_dir, "reviews.csv.gz"))
   clean_data = data[pd.notnull(data["comments"])]
-  get_pkl_name = lambda n: os.path.join(area_dir, "reviews_with_aspects_{}samples.pkl".format(n))
+  save_name = lambda n: "reviews_with_aspects_{}samples_sentiment".format(n)
 
 else:
   # or some other file we created (eg. with island locations for southern agean)
@@ -26,17 +31,28 @@ else:
   # Keep only reviews from the given island
   clean_data = clean_data[clean_data.location == island]
   print("Keeping reviews from {} only.".format(island))
-  get_pkl_name = lambda n: os.path.join(area_dir, "reviews_with_aspects_{}_{}samples.pkl".format(island, n))
+  save_name = lambda n: "reviews_with_aspects_{}_{}samples_sentiment".format(island, n)
 
-ids = np.arange(len(clean_data))
-np.random.shuffle(ids)
-if n_samples is None or n_samples > len(clean_data):
+
+if ids_file is None:
+  ids = np.arange(len(clean_data))
+  np.random.shuffle(ids)
+  print("Shuffling data")
+  get_pkl_name = lambda n: os.path.join(area_dir, "{}.pkl".format(save_name(n)))
+else:
+  ids = np.load(ids_file)
+  print("Random indices loaded from {}".format(ids_file))
+  ids = ids[start_index:]
+  print("Starting from index {}".format(start_index))
+  get_pkl_name = lambda n: os.path.join(area_dir, "{}_start{}.pkl".format(save_name(n), start_index))
+
+if n_samples is None or n_samples > len(ids):
   n_samples = len(clean_data)
-
 # Print messages to know what the script is doing
 print("{} reviews found for {}".format(len(clean_data), area))
 print("Target number of samples:", n_samples)
 print("Saving checkpoints every {} samples.".format(n_save))
+
 
 sampled_columns = list(clean_data.columns) + ["processed_comments", "aspects"]
 sampled_data = pd.DataFrame(index=range(n_samples), columns=sampled_columns)
@@ -57,7 +73,7 @@ while ic < n_samples and i < len(ids):
     if processed_review is not None:
       sampled_data.iloc[ic] = data_row
       sampled_data.iloc[ic]["processed_comments"] = processed_review
-      sampled_data.iloc[ic]["aspects"] = dependencies.find_features(processed_review)
+      sampled_data.iloc[ic]["aspects"] = dependencies.feature_sentiment(processed_review)
       ic += 1
 
       if ic % n_message == 0:
