@@ -16,6 +16,34 @@ def collect_aspects(data: pd.Series) -> collections.Counter:
   return all_aspects
 
 
+def collect_listing_aspects(listing_aspect_column: pd.Series,
+                            use_score: bool = False) -> collections.Counter:
+  all_listing_aspects = collections.Counter()
+  for aspects in listing_aspect_column:
+    for phrase, score in aspects.items():
+      if not isinstance(phrase, str):
+        continue
+      if use_score:
+        to_add = score
+      else:
+        to_add = 2 * int(score > 0) - 1
+      for word in phrase.split(" "):
+        all_listing_aspects[word] += to_add
+  return all_listing_aspects
+
+
+def make_aspects_single_words(aspects: collections.Counter
+                              ) -> collections.Counter:
+  """Transforms phrase aspects to single words."""
+  new_aspects = collections.Counter()
+  for aspect, score in aspects.items():
+    if not isinstance(aspect, str):
+      continue
+    for word in aspect.split(" "):
+      new_aspects[word] = score
+  return new_aspects
+
+
 def word_barchart(aspects: collections.Counter, n_words: int = 10,
                   n_reviews: Optional[int] = None,
                   plotter=plt, color=None):
@@ -53,9 +81,12 @@ class DistanceMatrix:
 
   @classmethod
   def calculate(cls, model, aspects: collections.Counter,
-                min_appearances: int = 2):
-    words = [word for word, counts in aspects.most_common()
-             if counts > 2 and word in model]
+                min_appearances: Optional[int] = None):
+    if min_appearances is None:
+      words = [word for word, _ in aspects.most_common() if word in model]
+    else:
+      words = [word for word, counts in aspects.most_common()
+               if counts > min_appearances and word in model]
     print("Calculating matrix with {} words.".format(len(words)))
 
     matrix = np.eye(len(words))

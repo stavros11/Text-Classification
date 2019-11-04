@@ -1,7 +1,8 @@
 import collections
+import re
 import os
 import spacy
-from typing import Set
+from typing import Set, Tuple, Union
 
 
 def load_words(lexicon_dir: str) -> Set[str]:
@@ -16,7 +17,8 @@ _NEG_WORDS = load_words(os.path.join(_LEXICON_DIR, "neg_words.txt"))
 _OPINION_WORDS = _POS_WORDS | _NEG_WORDS
 
 
-def feature_sentiment(sentence: str) -> collections.Counter:
+def feature_sentiment(sentence: str, lemmatize_text: bool = False
+                      ) -> Union[collections.Counter, Tuple[collections.Counter, str]]:
     """Finds feature words and the corresponding sentiment.
 
     Example use:
@@ -91,6 +93,15 @@ def feature_sentiment(sentence: str) -> collections.Counter:
                                 noun = subchild.text.lower() + " " + noun
                         sent_dict[noun] += sentiment
                     debug += 1
+    if lemmatize_text:
+        # Lemmatize using spaCy
+        text = " ".join([word.lemma_ if word.lemma_ != '-PRON-' else word.text
+                         for word in sentence])
+        # Leave only letter characters
+        text = re.sub("[^a-zA-z\s]", " ", text)
+        # Substitute any white space character with a single space
+        text = " ".join(text.split())
+        return sent_dict, text.lower()
     return sent_dict
 
 
