@@ -3,16 +3,13 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 
-def collect_aspects(data: pd.DataFrame) -> collections.Counter:
-  """Collects all the aspects from a DataFrame.
-
-  The DataFrame must have an `aspects` column that contains sets.
-  """
+def collect_aspects(data: pd.Series) -> collections.Counter:
+  """Collects all the aspects from a Series."""
   all_aspects = collections.Counter()
-  for aspects in data.aspects:
+  for aspects in data:
     for phrase in aspects:
       for word in phrase.split(" "):
         all_aspects[word] += 1
@@ -110,6 +107,17 @@ class DistanceMatrix:
             merged_aspects[word] += self.aspects[self.words[j]]
 
     return merged_aspects
+
+  def word_replacement_map(self, cut_off: float) -> Dict[str, str]:
+    """Maps each word to the equivalent one with the highest count."""
+    word_replacement_map = {}
+    for i, word in enumerate(self.words):
+      if word not in word_replacement_map:
+        word_replacement_map[word] = word
+        for j in np.where(self.matrix[i] < cut_off)[0]:
+          if self.words[j] not in word_replacement_map:
+            word_replacement_map[self.words[j]] = word
+    return word_replacement_map
 
 
 def manual_word_merge(aspects: collections.Counter, word1, word2) -> collections.Counter:
