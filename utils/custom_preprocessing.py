@@ -44,7 +44,10 @@ def remove_special_characters(text: str, remove_digits: bool = False) -> str:
   return text
 
 
-def preprocessing_pipeline(text: str) -> Optional[str]:
+def preprocessing_pipeline(text: str,
+                           check_language: bool = True,
+                           use_neuralcoref: bool = True,
+                           replace_host: bool = True) -> Optional[str]:
   """This does the following preprocessing pipeline:
 
       * Detect language and whether review is good (eg. more than five characters).
@@ -55,20 +58,25 @@ def preprocessing_pipeline(text: str) -> Optional[str]:
 
     If this returns `None` then we ignore the review.
   """
-  try:
-    language = langdetect.detect(text)
-  except:
-    print("Failed to identify language of:", text)
-    return None
-  if language != "en":
-    return None
+  if check_language:
+    try:
+      language = langdetect.detect(text)
+    except:
+      print("Failed to identify language of:", text)
+      return None
+    if language != "en":
+      return None
 
   ptext = expand_contractions(text)
   ptext = remove_special_characters(ptext)
 
-  ntext = _NLP(ptext)
-  names = {token.text for token in ntext.ents if token.label_ == "PERSON"}
-  ptext = ntext._.coref_resolved
-  for name in names:
-    ptext = re.sub(name, "Host", ptext)
+  if use_neuralcoref:
+    ntext = _NLP(ptext)
+    ptext = ntext._.coref_resolved
+
+  if replace_host:
+    names = {token.text for token in ntext.ents if token.label_ == "PERSON"}
+    for name in names:
+      ptext = re.sub(name, "Host", ptext)
+
   return ptext
