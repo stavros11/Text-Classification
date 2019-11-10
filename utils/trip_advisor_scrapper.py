@@ -27,7 +27,7 @@ class TripAdvisorReviewScrapper:
 
   _SCRIPT_TARGET = "window.__WEB_CONTEXT__"
 
-  def __init__(self, base_url, reviews_per_page=5):
+  def __init__(self, base_url: str, reviews_per_page: int = 5):
     self.session = requests.Session()
     self.reviews = []
 
@@ -38,29 +38,27 @@ class TripAdvisorReviewScrapper:
     self.data = self.scrape_data(self.url.format(""))
     print("Found {} reviews for {}.".format(self.n_reviews, self.data["name"]))
 
-  def scrape_reviews(self, start_page: int = 0, last_page: Optional[int] = None,
-                     max_reviews: Optional[int] = None):
+  def scrape_reviews(self, start_page: int = 0, max_reviews: Optional[int] = None):
     counter = start_page * self.reviews_per_page
-    max_counter = None if last_page is None else last_page * self.reviews_per_page
+    if max_reviews is None: max_reviews = self.n_reviews
 
-    if counter == 0:
-      url = self.url.format("")
-    else:
-      url = "".join([self.url.format("-or{}".format(counter)), "#REVIEWS"])
-    revlist = self.get_base(url)["reviewListPage"]["reviews"]
-
-    while revlist:
-      for review in revlist:
-        self.reviews.append(self.scrape_review(review))
+    while counter < max_reviews:
+      url = self._get_url(counter)
+      page_nr = counter // self.reviews_per_page + 1
+      try:
+        revlist = self.get_base(url)["reviewListPage"]["reviews"]
+        for review in revlist:
+          self.reviews.append(self.scrape_review(review))
+        print("Page {} - {} reviews scrapped.".format(page_nr, len(revlist)))
+      except:
+        print("Failed to read reviews on page {}.".format(page_nr))
 
       counter += self.reviews_per_page
-      print("{} reviews scrapped.".format(counter))
 
-      if max_reviews is not None and len(self.reviews) >= max_reviews: break
-      if max_counter is not None and counter >= max_counter: break
-
-      url = "".join([self.url.format("-or{}".format(counter)), "#REVIEWS"])
-      revlist = self.get_base(url)["reviewListPage"]["reviews"]
+  def _get_url(self, counter: int):
+    if counter > 0:
+      return "".join([self.url.format("-or{}".format(counter)), "#REVIEWS"])
+    return self.url.format("")
 
   def get_base(self, url: str) -> Dict:
     req = self.session.get(url)
@@ -123,10 +121,18 @@ class TripAdvisorReviewScrapper:
   def to_dataframe(self) -> pd.DataFrame:
     return pd.DataFrame(self.reviews, columns=self._REVIEW_TITLES)
 
-  def save(self):
-    name = "{}_{}reviews".format(self.lower_name, len(self.reviews))
+  def _save(self, name: str):
     with open("{}.txt".format(name), "w") as file:
       json.dump(self.data, file)
-
     df = self.to_dataframe()
     df.to_csv("{}.csv".format(name), index=False)
+
+  def save(self, name: Optional[str] = None):
+    if name is None: name = self.lower_name
+    try:
+      name = "{}_{}reviews".format(name, len(self.reviews))
+      self._save(name)
+    except:
+      print("Failed to save with name: {}.".format(name))
+      print("Using name `test` instead.")
+      self._save("test")
