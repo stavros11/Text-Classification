@@ -2,7 +2,42 @@ import requests
 import bs4
 import json
 import pandas as pd
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
+
+
+def find_reviews_dict(root, target="mgmtResponse") -> Optional[str]:
+  """Helper method that finds the dictionary key path of reviews in JS code."""
+  traces = [""]
+  stack = [root]
+  while stack:
+    node = stack.pop()
+    trace = traces.pop()
+    if isinstance(node, dict):
+      if target in node:
+        return "/".join([trace, target])
+      for k, v in node.items():
+        traces.append("/".join([trace, k]))
+        stack.append(v)
+    elif isinstance(node, list):
+      for i, v in enumerate(node):
+        traces.append("/".join([trace, "__LS__{}".format(i)]))
+        stack.append(v)
+    elif isinstance(node, str):
+      if target in node:
+        return trace
+  return None
+
+
+def multiple_dict_indexing(d: Union[Dict, List], ids: List[str],
+                           list_token="__LS__") -> Union[Dict, List]:
+  if ids[0][:len(list_token)] == list_token:
+    new_d = d[int(ids[0][len(list_token):])]
+  else:
+    new_d =d[ids[0]]
+
+  if len(ids) > 1:
+    return multiple_dict_indexing(new_d, ids[1:])
+  return new_d
 
 
 class TripAdvisorReviewScrapper:
@@ -55,7 +90,7 @@ class TripAdvisorReviewScrapper:
 
       counter += self.reviews_per_page
 
-  def _get_url(self, counter: int):
+  def _get_url(self, counter: int) -> str:
     if counter > 0:
       return "".join([self.url.format("-or{}".format(counter)), "#REVIEWS"])
     return self.url.format("")
@@ -71,7 +106,23 @@ class TripAdvisorReviewScrapper:
     assert len(scripts) == 1
 
     script_dict = json.loads(scripts[0].text[n + 15:-2])
-    base = script_dict["apolloCache"][0]["result"]["locations"][0]
+    #base = script_dict["apolloCache"][0]["result"]["locations"][0]
+
+    base_path = find_reviews_dict(script_dict)
+    base_path = base_path.split("/")[1:]
+    final_idx = base_path.index("reviewListPage")
+    base = multiple_dict_indexing(script_dict, base_path[:final_idx])
+
+    # Example path
+    #/435984507/data/locations/0/reviewListPage/reviews/4/mgmtResponse
+
+#    print(script_dict["urqlCache"].keys())
+#    print(script_dict["urqlCache"]["435984507"].keys())
+#    print(script_dict["urqlCache"]["435984507"]["data"].keys())
+#    print(script_dict["urqlCache"]["435984507"]["data"]["locations"][0].keys())
+#    print(script_dict["urqlCache"]["435984507"]["data"]["locations"][0]["reviewListPage"].keys())
+#    print(len(script_dict["urqlCache"]["435984507"]["data"]["locations"][0]["reviewListPage"]["reviews"]))
+
 
     if "reviewListPage" in base and "totalCount" in base["reviewListPage"]:
       if self.n_reviews is None:
