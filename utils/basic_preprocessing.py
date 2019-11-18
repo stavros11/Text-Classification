@@ -2,12 +2,6 @@ import re
 import langdetect
 from utils import contractions
 from typing import Optional
-
-import neuralcoref
-import spacy
-_NLP = spacy.load('en_core_web_sm', parse=True, tag=True, entity=True)
-_NLP.add_pipe(neuralcoref.NeuralCoref(_NLP.vocab), name='neuralcoref')
-
 # TODO: Add docstrings
 
 
@@ -44,17 +38,28 @@ def remove_special_characters(text: str, remove_digits: bool = False) -> str:
   return text
 
 
-def preprocessing_pipeline(text: str,
-                           check_language: bool = True,
-                           use_neuralcoref: bool = True,
-                           replace_host: bool = True) -> Optional[str]:
+def find_language(text: str) -> str:
+  try:
+    language = langdetect.detect(text)
+  except:
+    print("Failed to identify language of:", text)
+    return "<UNK>"
+  return language
+
+
+def is_english(text: str) -> str:
+  return find_language(text) == "en"
+
+
+def preprocessing_pipeline(text: str, check_language: bool = True
+                           ) -> Optional[str]:
   """This does the following preprocessing pipeline:
 
       * Detect language and whether review is good (eg. more than five characters).
       * Expand contractions and remove 's from names.
       * Remove special characters, spaces, newlines, etc. Fullstops are left at this point to distinguish sentences.
-      * Use `neuralcoref` to substitute pronouns with original names.
-      * Replaces person names with the word `Host`
+      MOVED * Use `neuralcoref` to substitute pronouns with original names.
+      MOVED * Replaces person names with the word `Host`
 
     If this returns `None` then we ignore the review.
   """
@@ -69,14 +74,4 @@ def preprocessing_pipeline(text: str,
 
   ptext = expand_contractions(text)
   ptext = remove_special_characters(ptext)
-
-  if use_neuralcoref:
-    ntext = _NLP(ptext)
-    ptext = ntext._.coref_resolved
-
-  if replace_host:
-    names = {token.text for token in ntext.ents if token.label_ == "PERSON"}
-    for name in names:
-      ptext = re.sub(name, "Host", ptext)
-
   return ptext
