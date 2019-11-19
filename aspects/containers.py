@@ -4,6 +4,7 @@ import functools
 import pickle
 import numpy as np
 import pandas as pd
+import nltk
 import plotly.graph_objects as go
 from plotly import subplots
 from aspects import distance_matrix
@@ -190,14 +191,15 @@ class DataAspects:
   def from_dataframe(cls, data: pd.DataFrame,
                      aspect_column_name: str = "aspects"):
     # Transform phrase aspects to single words
-    word_aspects = data[aspect_column_name].map(transform_to_single_words)
+    word_aspects = data[aspect_column_name]#.map(transform_to_single_words)
+    stopwords = set(nltk.corpus.stopwords.words("english"))
 
     review_map = {}
     scores = [collections.Counter(), collections.Counter()]
     appearances = [collections.Counter(), collections.Counter()]
     for i, aspects in enumerate(word_aspects):
       for word, score in aspects.items():
-        if isinstance(word, str):
+        if isinstance(word, str) and word not in stopwords:
           sign = int(score > 0)
           scores[sign][word] += score
           appearances[sign][word] += 1
