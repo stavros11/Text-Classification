@@ -73,6 +73,21 @@ class TripAdvisorReviewScrapper:
     self.data = self.scrape_data(self.url.format(""))
     print("Found {} reviews for {}.".format(self.n_reviews, self.data["name"]))
 
+  def scrape_data(self, url: str) -> Dict:
+    soup = self.get_soup(url)
+    base = self.get_base(soup)
+    data = {"locationId": base["locationId"],
+            "name": base["name"],
+            "accommodationCategory": base["accommodationCategory"],
+            "ratingCounts": base["reviewAggregations"]["ratingCounts"],
+            "languageCounts": base["reviewAggregations"]["languageCounts"],
+            "absoluteUrl": url}
+    try:
+      data["additionalRatings"] = self.find_additional_ratings(soup)
+    except AssertionError:
+      print("Failed to scrape additional ratings.")
+    return data
+
   def scrape_reviews(self, start_page: int = 0, max_reviews: Optional[int] = None):
     counter = start_page * self.reviews_per_page
     if max_reviews is None: max_reviews = self.n_reviews
@@ -81,25 +96,22 @@ class TripAdvisorReviewScrapper:
       url = self._get_url(counter)
       page_nr = counter // self.reviews_per_page + 1
       try:
-        revlist = self.get_base(url)["reviewListPage"]["reviews"]
+        soup = self.get_soup(url)
+        revlist = self.get_base(soup)["reviewListPage"]["reviews"]
         for review in revlist:
           self.reviews.append(self.scrape_review(review))
         print("Page {} - {} reviews scrapped.".format(page_nr, len(revlist)))
-      except:
+      except Exception:
         print("Failed to read reviews on page {}.".format(page_nr))
 
       counter += self.reviews_per_page
 
-  def _get_url(self, counter: int) -> str:
-    if counter > 0:
-      return "".join([self.url.format("-or{}".format(counter)), "#REVIEWS"])
-    return self.url.format("")
-
-  def get_base(self, url: str) -> Dict:
+  def get_soup(self, url: str) -> bs4.BeautifulSoup:
     req = self.session.get(url)
     assert req.status_code == 200
+    return bs4.BeautifulSoup(req.text, "html.parser")
 
-    soup = bs4.BeautifulSoup(req.text, "html.parser")
+  def get_base(self, soup: bs4.BeautifulSoup) -> Dict:
     n = len(self._SCRIPT_TARGET)
     scripts = [script for script in soup.find_all('script')
                if script.text[:n] == self._SCRIPT_TARGET]
@@ -132,14 +144,22 @@ class TripAdvisorReviewScrapper:
 
     return base
 
-  def scrape_data(self, url: str) -> Dict:
-    base = self.get_base(url)
-    data = {"locationId": base["locationId"],
-            "name": base["name"],
-            "accommodationCategory": base["accommodationCategory"],
-            "ratingCounts": base["reviewAggregations"]["ratingCounts"],
-            "languageCounts": base["reviewAggregations"]["languageCounts"]}
-    return data
+  def find_additional_ratings(self, soup: bs4.BeautifulSoup) -> Dict:
+    _class_name = "hotels-hotel-review-about-with-photos-Reviews__subratingRow--2u0CJ"
+    ratings_list = soup.find_all("div", {"class": _class_name})
+    ratings = {}
+    for rating in ratings_list:
+      score_bubble = rating.find("span")["class"]
+      assert len(score_bubble) == 2
+      assert score_bubble[0] == "ui_bubble_rating"
+      score = float(score_bubble[1].split("_")[-1]) / 10.0
+      ratings[rating.text] = score
+    return ratings
+
+  def _get_url(self, counter: int) -> str:
+    if counter > 0:
+      return "".join([self.url.format("-or{}".format(counter)), "#REVIEWS"])
+    return self.url.format("")
 
   def scrape_review(self, review: Dict) -> List:
     data = [self._nested_get(review, k.split("/")) for k in self._REVIEW_DATA[:-1]]
